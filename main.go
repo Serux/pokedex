@@ -5,31 +5,62 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/Serux/pokedex/apiresponses"
+	"github.com/Serux/pokedex/commands"
+	"github.com/Serux/pokedex/internal/pokecache"
 )
 
-type cliCommand struct {
-	name        string
-	description string
-	callback    func() error
-}
-
-var commands map[string]cliCommand
-
 func main() {
-	commands = map[string]cliCommand{
-		"exit": {
-			name:        "exit",
-			description: "Exit the Pokedex",
-			callback:    commandExit,
-		},
-		"help": {
-			name:        "help",
-			description: "Displays a help message",
-			callback:    commandHelp,
-		},
-	}
 
 	scanner := bufio.NewScanner(os.Stdin)
+	config := commands.ConfigPoke{
+		Comm: map[string]commands.CliCommand{
+			"exit": {
+				Name:        "exit",
+				Description: "Exit the Pokedex",
+				Callback:    commands.CommandExit,
+			},
+			"help": {
+				Name:        "help",
+				Description: "Displays a help message",
+				Callback:    commands.CommandHelp,
+			},
+			"map": {
+				Name:        "map",
+				Description: "Shows next 20 locations-areas",
+				Callback:    commands.CommandMap,
+			},
+			"mapb": {
+				Name:        "mapb",
+				Description: "Shows previous 20 locations-areas",
+				Callback:    commands.CommandMapBack,
+			},
+			"explore": {
+				Name:        "explore",
+				Description: "Shows pokemons of a location",
+				Callback:    commands.CommandExplore,
+			},
+			"catch": {
+				Name:        "catch",
+				Description: "Tryes to catch a pokemon",
+				Callback:    commands.CommandCatch,
+			},
+			"inspect": {
+				Name:        "inspect",
+				Description: "Inspect a catched pokemon",
+				Callback:    commands.CommandInspect,
+			},
+			"pokedex": {
+				Name:        "pokedex",
+				Description: "Shows captured pokemons",
+				Callback:    commands.CommandPokedex,
+			},
+		},
+		Cache:   pokecache.NewCache(time.Second * 5),
+		Pokedex: map[string]apiresponses.Pokemon{},
+	}
 	for {
 		fmt.Print("Pokedex > ")
 		scanner.Scan()
@@ -39,31 +70,17 @@ func main() {
 		if len(userCommands) == 0 {
 			continue
 		}
-		if _, ok := commands[userCommands[0]]; !ok {
+		if _, ok := config.Comm[userCommands[0]]; !ok {
 			continue
 		}
+		params := []string{}
+		if len(userCommands) > 1 {
+			params = userCommands[1:]
+		}
 
-		commands[userCommands[0]].callback()
+		config.Comm[userCommands[0]].Callback(&config, params)
 
 	}
-}
-func commandHelp() error {
-	fmt.Println("Welcome to the Pokedex!")
-	fmt.Println("Usage:")
-	fmt.Println()
-
-	for _, command := range commands {
-		fmt.Printf("%v: %v\n", command.name, command.description)
-	}
-	return nil
-}
-func commandExit() error {
-	if _, err := fmt.Println("Closing the Pokedex... Goodbye!"); err != nil {
-		return err
-	}
-	os.Exit(0)
-	return fmt.Errorf("Cannot close aplication")
-
 }
 
 func cleanInput(text string) []string {
